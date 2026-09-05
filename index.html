@@ -648,7 +648,7 @@ const items = [
 
     {
         id: "lenChuyen",
-        name: '<span class="vi">3B - Lên chuyền - Hàng trắng</span><span class="zh">3B - 上线－白坯</span>',
+        name: '<span class="vi">3B - Lên chuyền - Hàng trắng</span><span class="zh">3B - 上线－白身</span>',
         total: 2080,
         label: '<span class="vi">Đã lên chuyền</span><span class="zh">已上线</span>',
         initial: 355
@@ -886,7 +886,7 @@ function renderCards() {
             <div class="row">
 
                 <span class="label">
-                    <span class="vi">Còn thiếu</span><span class="zh">剩余数量</span>
+                    <span class="vi">Còn thiếu</span><span class="zh">欠数量</span>
                 </span>
 
                 <span class="value ${statusClass}">
@@ -1280,255 +1280,247 @@ function getPlainName(item) {
 
 async function exportExcel() {
 
-    const dates = Object.keys(historyData).sort();
+    /*
+       XUẤT EXCEL THEO ĐÚNG 5 BẢNG NHỎ TRÊN MÀN HÌNH
 
-    // Không còn chặn export khi chưa có lịch sử ngày nào —
-    // sheet Tổng quan vẫn xuất được dựa trên số liệu lũy kế hiện tại.
+       Bố cục Excel:
+       ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+       │ Bảng 1       │ │ Bảng 2       │ │ Bảng 3       │
+       │ Total        │ │ Total        │ │ Total        │
+       │ Đã hoàn thành│ │ Đã hoàn thành│ │ Đã hoàn thành│
+       │ Còn thiếu     │ │ Còn thiếu     │ │ Còn thiếu     │
+       │ % hoàn thành  │ │ % hoàn thành  │ │ % hoàn thành  │
+       └──────────────┘ └──────────────┘ └──────────────┘
+
+       ┌──────────────┐ ┌──────────────┐
+       │ Bảng 4       │ │ Bảng 5       │
+       │ ...          │ │ ...          │
+       └──────────────┘ └──────────────┘
+    */
 
     const workbook = new ExcelJS.Workbook();
-
     workbook.creator = "Quản lý tiến độ hàng";
     workbook.created = new Date();
 
-    const HEADER_BLUE = "FF2563EB";
-    const HEADER_DARK = "FF374151";
-    const THIN_GRAY = "FFD1D5DB";
-    const ZEBRA_GRAY = "FFF9FAFB";
+    const ws = workbook.addWorksheet("5 bảng tiến độ", {
+        views: [{ showGridLines: false }]
+    });
+
+    const YELLOW = "FFFFFF00";
     const GREEN = "FF16A34A";
     const RED = "FFDC2626";
-    const YELLOW = "FFFFF200";
+    const GRAY = "FFE5E7EB";
+    const DARK = "FF374151";
+    const WHITE = "FFFFFFFF";
+    const BORDER = "FFD1D5DB";
 
-
-    /* ---------- SHEET 1: TỔNG QUAN TIẾN ĐỘ ---------- */
-
-    const wsSummary = workbook.addWorksheet("Tổng quan tiến độ", {
-        views: [{ state: "frozen", ySplit: 2, showGridLines: false }]
-    });
-
-    wsSummary.columns = [
-        { key: "name", width: 34 },
-        { key: "total", width: 18 },
-        { key: "done", width: 18 },
-        { key: "remaining", width: 18 },
-        { key: "percent", width: 20 }
+    // Mỗi bảng rộng 5 cột, cách nhau 1 cột
+    const positions = [
+        { col: 1, row: 1 },   // A1:E6
+        { col: 7, row: 1 },   // G1:K6
+        { col: 13, row: 1 },  // M1:Q6
+        { col: 1, row: 9 },   // A9:E14
+        { col: 7, row: 9 }    // G9:K14
     ];
 
-    // Dòng 1: tiêu đề lớn, gộp 5 cột
-    wsSummary.mergeCells("A1:E1");
+    // Độ rộng cột
+    for (let c = 1; c <= 17; c++) {
+        ws.getColumn(c).width = (c === 6 || c === 12) ? 3 : 14;
+    }
 
-    const titleCell = wsSummary.getCell("A1");
+    function colLetter(num) {
+        let s = "";
+        while (num > 0) {
+            let m = (num - 1) % 26;
+            s = String.fromCharCode(65 + m) + s;
+            num = Math.floor((num - 1) / 26);
+        }
+        return s;
+    }
 
-    titleCell.value = "QUẢN LÝ TIẾN ĐỘ HÀNG / 货物进度管理";
-
-    titleCell.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
-    titleCell.alignment = { vertical: "middle", horizontal: "center" };
-    titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_DARK } };
-
-    wsSummary.getRow(1).height = 30;
-
-    // Dòng 2: tiêu đề cột
-    const sumHeader = wsSummary.getRow(2);
-
-    sumHeader.values = [
-        "Công đoạn / 工序",
-        "Tổng số lượng / 总数量",
-        "Đã hoàn thành / 已完成",
-        "Còn thiếu / 剩余数量",
-        "Tỷ lệ hoàn thành / 完成率"
-    ];
-
-    sumHeader.eachCell(cell => {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_BLUE } };
-        cell.font = { color: { argb: "FFFFFFFF" }, bold: true, size: 12 };
-        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-        cell.border = {
-            top: { style: "thin" }, left: { style: "thin" },
-            bottom: { style: "thin" }, right: { style: "thin" }
+    function borderStyle() {
+        return {
+            top: { style: "thin", color: { argb: BORDER } },
+            left: { style: "thin", color: { argb: BORDER } },
+            bottom: { style: "thin", color: { argb: BORDER } },
+            right: { style: "thin", color: { argb: BORDER } }
         };
-    });
+    }
 
-    sumHeader.height = 32;
+    function makeMiniTable(item, pos) {
 
-    items.forEach(item => {
+        const startCol = pos.col;
+        const startRow = pos.row;
+        const endCol = startCol + 4;
+
+        const a = colLetter(startCol);
+        const e = colLetter(endCol);
 
         const done = getTotalDone(item);
         const remaining = Math.max(item.total - done, 0);
-        const percent = item.total > 0 ? Math.min(done / item.total, 1) : 0;
+        const percent = item.total > 0
+            ? Math.min(done / item.total, 1)
+            : 0;
 
-        const row = wsSummary.addRow([
-            getPlainName(item),
-            item.total,
-            done,
-            remaining,
-            percent
-        ]);
+        // Tiêu đề giống ô vàng trên giao diện
+        ws.mergeCells(`${a}${startRow}:${e}${startRow}`);
 
-        row.eachCell((cell, colNumber) => {
-
-            cell.border = {
-                top: { style: "thin", color: { argb: THIN_GRAY } },
-                left: { style: "thin", color: { argb: THIN_GRAY } },
-                bottom: { style: "thin", color: { argb: THIN_GRAY } },
-                right: { style: "thin", color: { argb: THIN_GRAY } }
-            };
-
-            cell.alignment = {
-                vertical: "middle",
-                horizontal: colNumber === 1 ? "left" : "center"
-            };
-
-        });
-
-        row.getCell(2).numFmt = "#,##0";
-        row.getCell(3).numFmt = "#,##0";
-        row.getCell(4).numFmt = "#,##0";
-        row.getCell(5).numFmt = "0.0%";
-
-        row.getCell(3).font = { color: { argb: GREEN }, bold: true };
-        row.getCell(4).font = { color: { argb: remaining === 0 ? GREEN : RED }, bold: true };
-        row.getCell(5).font = { bold: true };
-
-        if (row.number % 2 === 0) {
-            row.eachCell(cell => {
-                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA_GRAY } };
-            });
-        }
-
-    });
-
-    wsSummary.addConditionalFormatting({
-        ref: `E3:E${wsSummary.rowCount}`,
-        rules: [
-            {
-                type: "dataBar",
-                cfvo: [{ type: "num", value: 0 }, { type: "num", value: 1 }],
-                color: { argb: GREEN }
-            }
-        ]
-    });
-
-
-    /* ---------- SHEET 2: LỊCH SỬ NHẬP HÀNG ---------- */
-
-    const wsHistory = workbook.addWorksheet("Lịch sử nhập hàng", {
-        views: [{ state: "frozen", ySplit: 1, showGridLines: false }]
-    });
-
-    wsHistory.columns = [
-        { key: "date", width: 14 },
-        { key: "lenChuyen", width: 18 },
-        { key: "lapRap", width: 16 },
-        { key: "nhapKho", width: 16 },
-        { key: "khungDay", width: 16 },
-        { key: "chanTien", width: 18 }
-    ];
-
-    const histHeader = wsHistory.getRow(1);
-
-    histHeader.values = [
-        "Ngày / 日期",
-        "Lên chuyền / 上线",
-        "Lắp ráp / 组装",
-        "Nhập kho / 入库",
-        "Khung đáy / 底框",
-        "Chân tiền / 车脚加工"
-    ];
-
-    histHeader.eachCell(cell => {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_BLUE } };
-        cell.font = { color: { argb: "FFFFFFFF" }, bold: true, size: 12 };
-        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-        cell.border = {
-            top: { style: "thin" }, left: { style: "thin" },
-            bottom: { style: "thin" }, right: { style: "thin" }
+        const title = ws.getCell(`${a}${startRow}`);
+        title.value = getPlainName(item);
+        title.font = {
+            bold: true,
+            size: 11
         };
-    });
+        title.alignment = {
+            vertical: "middle",
+            horizontal: "center",
+            wrapText: true
+        };
+        title.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: YELLOW }
+        };
+        title.border = borderStyle();
+        ws.getRow(startRow).height = 32;
 
-    histHeader.height = 32;
+        // Dòng Total
+        const r1 = startRow + 1;
+        ws.mergeCells(`${a}${r1}:${colLetter(startCol + 2)}${r1}`);
 
-    if (dates.length === 0) {
+        ws.getCell(`${a}${r1}`).value = "Total / 总数量";
+        ws.getCell(`${colLetter(startCol + 3)}${r1}`).value = item.total;
 
-        wsHistory.mergeCells("A2:F2");
+        // Dòng đã hoàn thành
+        const r2 = startRow + 2;
+        ws.mergeCells(`${a}${r2}:${colLetter(startCol + 2)}${r2}`);
 
-        const emptyCell = wsHistory.getCell("A2");
+        const doneLabel =
+            item.id === "khungDay" || item.id === "chanTien"
+                ? "Đã về / 已到"
+                : item.label.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
-        emptyCell.value = "Chưa có dữ liệu lịch sử / 暂无历史数据";
+        ws.getCell(`${a}${r2}`).value = doneLabel;
+        ws.getCell(`${colLetter(startCol + 3)}${r2}`).value = done;
 
-        emptyCell.font = { italic: true, color: { argb: "FF6B7280" } };
-        emptyCell.alignment = { vertical: "middle", horizontal: "center" };
+        // Dòng còn thiếu
+        const r3 = startRow + 3;
+        ws.mergeCells(`${a}${r3}:${colLetter(startCol + 2)}${r3}`);
 
-    }
+        ws.getCell(`${a}${r3}`).value = "Còn thiếu / 欠数量";
+        ws.getCell(`${colLetter(startCol + 3)}${r3}`).value = remaining;
 
-    dates.forEach(date => {
+        // Dòng % hoàn thành
+        const r4 = startRow + 4;
+        ws.mergeCells(`${a}${r4}:${colLetter(startCol + 2)}${r4}`);
 
-        const day = historyData[date];
+        ws.getCell(`${a}${r4}`).value = "Hoàn thành / 完成";
+        ws.getCell(`${colLetter(startCol + 3)}${r4}`).value = percent;
+        ws.getCell(`${colLetter(startCol + 3)}${r4}`).numFmt = "0.0%";
 
-        const row = wsHistory.addRow([
-            formatDate(date),
-            day.lenChuyen || 0,
-            day.lapRap || 0,
-            day.nhapKho || 0,
-            day.khungDay || 0,
-            day.chanTien || 0
-        ]);
+        // Cột hiển thị giá trị dùng 1 cột
+        for (let r = r1; r <= r4; r++) {
 
-        row.eachCell((cell, colNumber) => {
+            const labelCell = ws.getCell(`${a}${r}`);
+            const valueCell = ws.getCell(`${colLetter(startCol + 3)}${r}`);
 
-            cell.border = {
-                top: { style: "thin", color: { argb: THIN_GRAY } },
-                left: { style: "thin", color: { argb: THIN_GRAY } },
-                bottom: { style: "thin", color: { argb: THIN_GRAY } },
-                right: { style: "thin", color: { argb: THIN_GRAY } }
-            };
-
-            cell.alignment = {
+            labelCell.font = { size: 10 };
+            labelCell.alignment = {
                 vertical: "middle",
-                horizontal: colNumber === 1 ? "center" : "center"
+                horizontal: "left"
             };
 
-            if (colNumber > 1) {
-                cell.numFmt = "#,##0";
+            valueCell.font = {
+                bold: true,
+                size: 11
+            };
+            valueCell.alignment = {
+                vertical: "middle",
+                horizontal: "right"
+            };
+
+            valueCell.border = borderStyle();
+            labelCell.border = borderStyle();
+
+            // Tô toàn bộ 5 cột của từng dòng để tạo thành bảng nhỏ
+            for (let c = startCol; c <= endCol; c++) {
+                const cell = ws.getCell(`${colLetter(c)}${r}`);
+                cell.border = borderStyle();
+
+                if (r % 2 === 0) {
+                    cell.fill = {
+                        type: "pattern",
+                        pattern: "solid",
+                        fgColor: { argb: "FFF9FAFB" }
+                    };
+                }
             }
 
-        });
-
-        row.getCell(1).font = { bold: true };
-
-        if (row.number % 2 === 0) {
-            row.eachCell(cell => {
-                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA_GRAY } };
-            });
+            ws.getRow(r).height = 24;
         }
 
-    });
+        // Các cột trống giữa nhãn và số
+        for (let r = r1; r <= r4; r++) {
+            ws.mergeCells(`${colLetter(startCol + 3)}${r}:${e}${r}`);
+        }
 
-    // dòng tổng cộng ở cuối bảng lịch sử (chỉ khi có dữ liệu)
-    if (dates.length > 0) {
+        // Định dạng số sau khi merge
+        ws.getCell(`${colLetter(startCol + 3)}${r1}`).numFmt = "#,##0";
+        ws.getCell(`${colLetter(startCol + 3)}${r2}`).numFmt = "#,##0";
+        ws.getCell(`${colLetter(startCol + 3)}${r3}`).numFmt = "#,##0";
 
-        const totalRow = wsHistory.addRow([
-            "TỔNG CỘNG",
-            dates.reduce((s, d) => s + Number(historyData[d].lenChuyen || 0), 0),
-            dates.reduce((s, d) => s + Number(historyData[d].lapRap || 0), 0),
-            dates.reduce((s, d) => s + Number(historyData[d].nhapKho || 0), 0),
-            dates.reduce((s, d) => s + Number(historyData[d].khungDay || 0), 0),
-            dates.reduce((s, d) => s + Number(historyData[d].chanTien || 0), 0)
-        ]);
+        ws.getCell(`${colLetter(startCol + 3)}${r2}`).font = {
+            bold: true,
+            size: 11,
+            color: { argb: GREEN }
+        };
 
-        totalRow.eachCell((cell, colNumber) => {
-            cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_DARK } };
-            cell.alignment = { vertical: "middle", horizontal: "center" };
-            if (colNumber > 1) cell.numFmt = "#,##0";
-            cell.border = {
-                top: { style: "thin" }, left: { style: "thin" },
-                bottom: { style: "thin" }, right: { style: "thin" }
-            };
-        });
+        ws.getCell(`${colLetter(startCol + 3)}${r3}`).font = {
+            bold: true,
+            size: 11,
+            color: { argb: remaining === 0 ? GREEN : RED }
+        };
 
+        ws.getCell(`${colLetter(startCol + 3)}${r4}`).font = {
+            bold: true,
+            size: 11
+        };
+
+        // Thanh tiến độ mô phỏng đúng card
+        const progressRow = startRow + 5;
+
+        ws.mergeCells(`${a}${progressRow}:${e}${progressRow}`);
+
+        const progressCell = ws.getCell(`${a}${progressRow}`);
+        progressCell.value = `████████████████████  ${percent.toFixed(1)}%`;
+        progressCell.font = {
+            size: 9,
+            color: { argb: GREEN }
+        };
+        progressCell.alignment = {
+            vertical: "middle",
+            horizontal: "center"
+        };
+        progressCell.border = borderStyle();
+        progressCell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: GRAY }
+        };
+
+        ws.getRow(progressRow).height = 20;
     }
 
+    items.forEach((item, index) => {
+        makeMiniTable(item, positions[index]);
+    });
 
-    /* ---------- XUẤT FILE ---------- */
+    // Tiêu đề nhỏ trên đầu sheet
+    ws.mergeCells("A16:Q16");
+    const note = ws.getCell("A16");
+    note.value = "Dữ liệu được lấy trực tiếp từ 5 bảng tiến độ đang hiển thị trên màn hình / 数据直接来自页面显示的5个进度表";
+    note.font = { italic: true, size: 10, color: { argb: DARK } };
+    note.alignment = { horizontal: "center" };
 
     const buffer = await workbook.xlsx.writeBuffer();
 
@@ -1537,24 +1529,22 @@ async function exportExcel() {
     });
 
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement("a");
 
     link.href = url;
 
     const now = new Date();
-
     const stamp =
         `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
 
-    link.download = `bao_cao_tien_do_hang_${stamp}.xlsx`;
+    link.download = `5_bang_tien_do_${stamp}.xlsx`;
 
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
 
     URL.revokeObjectURL(url);
-
 }
-
 
 /* =====================================================
    XÓA TOÀN BỘ
