@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Quản lý tiến độ nhập hàng - 货物进度管理</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+
+<style>
+    :root {
+        --blue: #2563eb;
+        --blue-dark: #1d4ed8;
+        --green: #16a34a;
+        --green-dark: #15803d;
+        --red: #dc2626;
+        --orange: #f59e0b;
+        --gray: #6b7280;
+        --dark: #374151;
+        --text: #222;
+        --bg: #f2f4f7;
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+        /* co giãn theo chiều rộng màn hình, giữ trong khoảng dễ đọc */
+        font-size: clamp(14px, 1.6vw, 16px);
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: auto;
+        padding: 16px;
+    }
+
+    h1 {
+        text-align: center;
+        margin: 5px 0 20px;
+        color: #1f2937;
+        font-size: clamp(20px, 4vw, 28px);
+        line-height: 1.3;
+    }
+
+    /* =========================
+       KHU VỰC NHẬP
+    ========================= */
+
+    .input-box {
+        background: white;
+        border-radius: 12px;
+        padding: clamp(14px, 3vw, 20px);
+        box-shadow: var(--card-shadow);
+        margin-bottom: 20px;
+    }
+
+    .input-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
+    }
+
+    .input-header h2 {
+        margin: 0;
+        font-size: clamp(16px, 2.4vw, 20px);
+    }
+
+    .date-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    input[type="date"],
+    input[type="number"] {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 10px 10px;
+        font-size: 16px; /* >=16px để iOS không tự zoom khi focus */
+        min-height: 42px;
+    }
+
+    input[type="date"] {
+        min-width: 150px;
+    }
+
+    input[type="number"] {
+        width: 130px;
+        max-width: 100%;
+        text-align: right;
+    }
+
+    .input-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .input-table th {
+        background: var(--blue);
+        color: white;
+        padding: 10px;
+        text-align: left;
+    }
+
+    .input-table td {
+        border-bottom: 1px solid #ddd;
+        padding: 10px;
+    }
+
+    .input-table tr:hover {
+        background: #f8fafc;
+    }
+
+    .input-table td:nth-child(2),
+    .input-table td:nth-child(3) {
+        text-align: center;
+    }
+
+    .input-table input[type="number"] {
+        width: 100%;
+        max-width: 140px;
+    }
+
+    /* =========================
+       BUTTON
+    ========================= */
+
+    button {
+        border: none;
+        border-radius: 8px;
+        padding: 11px 16px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        min-height: 42px; /* vùng chạm thoải mái trên điện thoại */
+        touch-action: manipulation;
+    }
+
+    .btn-save {
+        background: var(--green);
+        color: white;
+    }
+
+    .btn-save:hover {
+        background: var(--green-dark);
+    }
+
+    .btn-blue {
+        background: var(--blue);
+        color: white;
+    }
+
+    .btn-blue:hover {
+        background: var(--blue-dark);
+    }
+
+    .btn-orange {
+        background: var(--orange);
+        color: white;
+    }
+
+    .btn-red {
+        background: var(--red);
+        color: white;
+    }
+
+    .btn-gray {
+        background: var(--gray);
+        color: white;
+    }
+
+    .button-area {
+        margin-top: 15px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    /* =========================
+       CARDS
+    ========================= */
+
+    .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .card {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: var(--card-shadow);
+        min-width: 0; /* tránh tràn trong grid trên mobile */
+    }
+
+    .card-title {
+        background: #fff200;
+        padding: 10px;
+        font-weight: bold;
+        text-align: center;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+
+    .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 4px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .row:last-child {
+        border-bottom: none;
+    }
+
+    .label {
+        color: #444;
+    }
+
+    .value {
+        font-weight: bold;
+        font-size: 17px;
+        white-space: nowrap;
+    }
+
+    .remaining {
+        color: var(--red);
+    }
+
+    .completed {
+        color: var(--green);
+    }
+
+    .progress {
+        height: 10px;
+        background: #e5e7eb;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 10px;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: var(--green);
+        transition: width 0.3s;
+    }
+
+    .percent {
+        text-align: right;
+        font-size: 13px;
+        margin-top: 5px;
+        color: #555;
+    }
+
+    /* =========================
+       LỊCH SỬ
+    ========================= */
+
+    .history-box {
+        background: white;
+        border-radius: 12px;
+        padding: clamp(14px, 3vw, 20px);
+        box-shadow: var(--card-shadow);
+        margin-top: 20px;
+    }
+
+    .history-box h2 {
+        margin-top: 0;
+        font-size: clamp(16px, 2.4vw, 20px);
+    }
+
+    .history-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+    }
+
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 700px; /* buộc scroll ngang thay vì bóp méo trên mobile */
+    }
+
+    .history-table th {
+        background: var(--dark);
+        color: white;
+        padding: 10px;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+    }
+
+    .history-table td {
+        padding: 9px;
+        border-bottom: 1px solid #ddd;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    /* cột "Ngày" luôn dính bên trái khi cuộn ngang trên mobile */
+    .history-table th:first-child,
+    .history-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: var(--dark);
+        color: white;
+    }
+
+    .history-table td:first-child {
+        background: white;
+        color: var(--text);
+        box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+    }
+
+    .history-table tr:nth-child(even) td:first-child {
+        background: #f9fafb;
+    }
+
+    .history-table tr:nth-child(even) {
+        background: #f9fafb;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+        flex-wrap: nowrap;
+    }
+
+    .small-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        min-height: 34px;
+    }
+
+    .notice {
+        background: #eff6ff;
+        border-left: 4px solid var(--blue);
+        padding: 12px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        line-height: 1.5;
+        font-size: 14px;
+    }
+
+    .danger-zone {
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #ddd;
+    }
+
+    /* =========================
+       SONG NGỮ VIỆT - TRUNG
+    ========================== */
+    .vi, .zh {
+        display: block;
+    }
+    .zh {
+        font-size: 0.88em;
+        font-weight: normal;
+        opacity: 0.9;
+        margin-top: 2px;
+    }
+    th .zh {
+        font-weight: normal;
+    }
+    .card-title .zh {
+        font-size: 0.82em;
+        font-weight: normal;
+    }
+
+    /* =========================
+       MÁY TÍNH BẢNG / TABLET (601px - 900px)
+    ========================= */
+
+    @media (min-width: 601px) and (max-width: 900px) {
+
+        .cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+    }
+
+    /* =========================
+       MÀN HÌNH LỚN / DESKTOP (≥ 1200px)
+    ========================= */
+
+    @media (min-width: 1200px) {
+
+        .container {
+            padding: 28px 20px;
+        }
+
+        .cards {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .input-box,
+        .history-box {
+            padding: 24px;
+        }
+
+    }
+
+    /* =========================
+       ĐIỆN THOẠI (≤ 600px)
+    ========================= */
+
+    @media (max-width: 600px) {
+
+        .container {
+            padding: 10px;
+        }
+
+        h1 {
+            margin-bottom: 14px;
+        }
+
+        .cards {
+            grid-template-columns: 1fr;
+        }
+
+        .input-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .date-box {
+            width: 100%;
+        }
+
+        .date-box input[type="date"] {
+            flex: 1;
+        }
+
+        .input-table th,
+        .input-table td {
+            font-size: 13px;
+            padding: 8px 6px;
+        }
+
+        .input-table input[type="number"] {
+            width: 100%;
+            min-width: 0;
+        }
+
+        /* Nút chiếm toàn bộ chiều rộng để dễ bấm bằng ngón tay */
+        .button-area {
+            flex-direction: column;
+        }
+
+        .button-area button {
+            width: 100%;
+        }
+
+        .card {
+            padding: 14px;
+        }
+
+        .value {
+            font-size: 16px;
+        }
+
+        .history-table th,
+        .history-table td {
+            font-size: 12.5px;
+            padding: 8px 6px;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .action-buttons button {
+            width: 100%;
+        }
+
+        .danger-zone button {
+            width: 100%;
+        }
+
+    }
+
+    /* Màn hình rất nhỏ (≤ 360px) */
+    @media (max-width: 360px) {
+
+        input[type="number"] {
+            width: 90px;
+        }
+
+        .value {
+            font-size: 15px;
+        }
+
+    }
+
+</style>
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <h1><span class="vi">QUẢN LÝ TIẾN ĐỘ HÀNG</span><span class="zh">货物进度管理</span></h1>
+
+    <!-- =========================
+         NHẬP SỐ LƯỢNG HÔM NAY
+    ========================== -->
+
+    <div class="input-box">
+
+        <div class="input-header">
+
+            <h2><span class="vi">Nhập số lượng trong ngày</span><span class="zh">填写当日数量</span></h2>
+
+            <div class="date-box">
+                <label><b><span class="vi">Ngày:</span><span class="zh">日期：</span></b></label>
+                <input type="date" id="selectedDate">
+            </div>
+
+        </div>
+
+        <div class="notice">
+            <span class="vi">Nhập số lượng thực tế của ngày đang chọn.</span><span class="zh">请输入所选日期的实际数量。</span>
+            <br>
+            <span class="vi">Nếu nhập sai, bạn có thể chọn lại ngày đó để sửa.</span><span class="zh">如填写错误，可重新选择该日期进行修改。</span>
+        </div>
+
+        <table class="input-table">
+
+            <thead>
+                <tr>
+                    <th><span class="vi">Công đoạn</span><span class="zh">工序</span></th>
+                    <th><span class="vi">Total</span><span class="zh">总数量</span></th>
+                    <th><span class="vi">Số lượng hôm nay</span><span class="zh">今日数量</span></th>
+                </tr>
+            </thead>
+
+            <tbody id="inputBody"></tbody>
+
+        </table>
+
+        <div class="button-area">
+
+            <button class="btn-save" onclick="saveDay()">
+                💾 <span class="vi">LƯU / CẬP NHẬT NGÀY</span><span class="zh">保存 / 更新日期</span>
+            </button>
+
+            <button class="btn-gray" onclick="clearInputs()">
+                <span class="vi">XÓA Ô NHẬP</span><span class="zh">清空输入框</span>
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         5 BẢNG TIẾN ĐỘ
+    ========================== -->
+
+    <div class="cards" id="cardsContainer"></div>
+
+
+    <!-- =========================
+         LỊCH SỬ
+    ========================== -->
+
+    <div class="history-box">
+
+        <h2>📋 <span class="vi">Lịch sử nhập hàng</span><span class="zh">进货记录</span></h2>
+
+        <div class="history-table-wrapper">
+
+            <table class="history-table">
+
+                <thead>
+                    <tr>
+                        <th><span class="vi">Ngày</span><span class="zh">日期</span></th>
+                        <th><span class="vi">Lên chuyền</span><span class="zh">上线</span></th>
+                        <th><span class="vi">Lắp ráp</span><span class="zh">组装</span></th>
+                        <th><span class="vi">Nhập kho</span><span class="zh">入库</span></th>
+                        <th><span class="vi">Khung đáy</span><span class="zh">底框</span></th>
+                        <th><span class="vi">Chân tiền</span><span class="zh">车脚加工</span></th>
+                        <th><span class="vi">Thao tác</span><span class="zh">操作</span></th>
+                    </tr>
+                </thead>
+
+                <tbody id="historyBody"></tbody>
+
+            </table>
+
+        </div>
+
+        <div class="button-area">
+
+            <button class="btn-blue" onclick="exportExcel()">
+                📊 <span class="vi">Xuất Excel</span><span class="zh">导出 Excel</span>
+            </button>
+
+        </div>
+
+        <div class="danger-zone">
+
+            <button class="btn-red" onclick="deleteAllData()">
+                ⚠️ <span class="vi">XÓA TOÀN BỘ LỊCH SỬ</span><span class="zh">删除全部记录</span>
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* =====================================================
+   CẤU HÌNH 5 BẢNG
+===================================================== */
+
+const items = [
+
+    {
+        id: "lenChuyen",
+        name: '<span class="vi">3B - Lên chuyền - Hàng trắng</span><span class="zh">3B - 上线－白坯</span>',
+        total: 2080,
+        label: '<span class="vi">Đã lên chuyền</span><span class="zh">已上线</span>',
+        initial: 355
+    },
+
+    {
+        id: "lapRap",
+        name: '<span class="vi">3B - Lắp ráp</span><span class="zh">3B - 组装</span>',
+        total: 2080,
+        label: '<span class="vi">Đã lắp ráp</span><span class="zh">已组装</span>',
+        initial: 1107
+    },
+
+    {
+        id: "nhapKho",
+        name: '<span class="vi">3A - Đóng gói - Nhập kho</span><span class="zh">3A - 包装－入库</span>',
+        total: 2080,
+        label: '<span class="vi">Đã nhập kho</span><span class="zh">已入库</span>',
+        initial: 1774
+    },
+
+    {
+        id: "khungDay",
+        name: '<span class="vi">3B - Khung đáy</span><span class="zh">3B - 底框</span>',
+        total: 2080,
+        label: "Đã về",
+        initial: 1717
+    },
+
+    {
+        id: "chanTien",
+        name: '<span class="vi">3B - Chân tiền</span><span class="zh">3B - 车脚加工</span>',
+        total: 8320,
+        label: "Đã về",
+        initial: 3676
+    }
+
+];
+
+
+/* =====================================================
+   LẤY DỮ LIỆU TỪ LOCAL STORAGE
+===================================================== */
+
+let historyData =
+    JSON.parse(localStorage.getItem("quanLyHangHistory")) || {};
+
+
+/* =====================================================
+   NGÀY HÔM NAY
+===================================================== */
+
+function getToday() {
+
+    const d = new Date();
+
+    const year = d.getFullYear();
+
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+
+    const day = String(d.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+
+/* =====================================================
+   KHỞI TẠO
+===================================================== */
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    document.getElementById("selectedDate").value = getToday();
+
+    createInputTable();
+
+    renderAll();
+
+    loadSelectedDate();
+
+});
+
+
+/* =====================================================
+   TẠO BẢNG NHẬP
+===================================================== */
+
+function createInputTable() {
+
+    const body = document.getElementById("inputBody");
+
+    body.innerHTML = "";
+
+    items.forEach(item => {
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+
+            <td>
+                <b>${item.name}</b>
+            </td>
+
+            <td>
+                ${formatNumber(item.total)}
+            </td>
+
+            <td>
+
+                <input
+                    type="number"
+                    min="0"
+                    id="input_${item.id}"
+                    placeholder="0"
+                >
+
+            </td>
+
+        `;
+
+        body.appendChild(tr);
+
+    });
+
+}
+
+
+/* =====================================================
+   FORMAT SỐ
+===================================================== */
+
+function formatNumber(number) {
+
+    return Number(number || 0).toLocaleString("vi-VN");
+
+}
+
+
+/* =====================================================
+   TÍNH TỔNG ĐÃ LÀM
+===================================================== */
+
+function getTotalDone(item) {
+
+    let total = item.initial;
+
+    Object.keys(historyData).forEach(date => {
+
+        const day = historyData[date];
+
+        total += Number(day[item.id] || 0);
+
+    });
+
+    return total;
+
+}
+
+
+/* =====================================================
+   TÍNH TỔNG CỦA NGÀY
+===================================================== */
+
+function getDayValue(date, itemId) {
+
+    if (!historyData[date]) {
+        return 0;
+    }
+
+    return Number(historyData[date][itemId] || 0);
+
+}
+
+
+/* =====================================================
+   HIỂN THỊ 5 CARD
+===================================================== */
+
+function renderCards() {
+
+    const container =
+        document.getElementById("cardsContainer");
+
+    container.innerHTML = "";
+
+    items.forEach(item => {
+
+        const done = getTotalDone(item);
+
+        const remaining =
+            Math.max(item.total - done, 0);
+
+        const percent =
+            Math.min((done / item.total) * 100, 100);
+
+        let statusClass =
+            remaining === 0
+                ? "completed"
+                : "remaining";
+
+        const card = document.createElement("div");
+
+        card.className = "card";
+
+        card.innerHTML = `
+
+            <div class="card-title">
+                ${item.name}
+            </div>
+
+            <div class="row">
+
+                <span class="label">
+                    <span class="vi">Total</span><span class="zh">总数量</span>
+                </span>
+
+                <span class="value">
+                    ${formatNumber(item.total)}
+                </span>
+
+            </div>
+
+            <div class="row">
+
+                <span class="label">
+                    ${item.label}
+                </span>
+
+                <span class="value completed">
+                    ${formatNumber(done)}
+                </span>
+
+            </div>
+
+            <div class="row">
+
+                <span class="label">
+                    <span class="vi">Còn thiếu</span><span class="zh">剩余数量</span>
+                </span>
+
+                <span class="value ${statusClass}">
+                    ${formatNumber(remaining)}
+                </span>
+
+            </div>
+
+            <div class="progress">
+
+                <div
+                    class="progress-bar"
+                    style="width:${percent}%"
+                ></div>
+
+            </div>
+
+            <div class="percent">
+
+                ${percent.toFixed(1)}% <span class="vi">hoàn thành</span><span class="zh">完成</span>
+
+            </div>
+
+        `;
+
+        container.appendChild(card);
+
+    });
+
+}
+
+
+/* =====================================================
+   HIỂN THỊ LỊCH SỬ
+===================================================== */
+
+function renderHistory() {
+
+    const body =
+        document.getElementById("historyBody");
+
+    body.innerHTML = "";
+
+    const dates =
+        Object.keys(historyData).sort().reverse();
+
+    if (dates.length === 0) {
+
+        body.innerHTML = `
+
+            <tr>
+
+                <td colspan="7">
+                    <span class="vi">Chưa có dữ liệu lịch sử</span><span class="zh">暂无历史数据</span>
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
+
+    }
+
+
+    dates.forEach(date => {
+
+        const day = historyData[date];
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+
+            <td>
+                <b>${formatDate(date)}</b>
+            </td>
+
+            <td>
+                ${formatNumber(day.lenChuyen)}
+            </td>
+
+            <td>
+                ${formatNumber(day.lapRap)}
+            </td>
+
+            <td>
+                ${formatNumber(day.nhapKho)}
+            </td>
+
+            <td>
+                ${formatNumber(day.khungDay)}
+            </td>
+
+            <td>
+                ${formatNumber(day.chanTien)}
+            </td>
+
+            <td>
+
+                <div class="action-buttons">
+
+                    <button
+                        class="btn-orange small-btn"
+                        onclick="editDate('${date}')"
+                    >
+                        ✏️ <span class="vi">Sửa</span><span class="zh">修改</span>
+                    </button>
+
+                    <button
+                        class="btn-red small-btn"
+                        onclick="deleteDate('${date}')"
+                    >
+                        🗑 <span class="vi">Xóa</span><span class="zh">删除</span>
+                    </button>
+
+                </div>
+
+            </td>
+
+        `;
+
+        body.appendChild(tr);
+
+    });
+
+}
+
+
+/* =====================================================
+   FORMAT NGÀY
+===================================================== */
+
+function formatDate(dateString) {
+
+    const parts = dateString.split("-");
+
+    if (parts.length !== 3) {
+        return dateString;
+    }
+
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+
+}
+
+
+/* =====================================================
+   LƯU NGÀY
+===================================================== */
+
+function saveDay() {
+
+    const date =
+        document.getElementById("selectedDate").value;
+
+    if (!date) {
+
+        alert("Vui lòng chọn ngày.");
+
+        return;
+
+    }
+
+
+    const values = {};
+
+
+    items.forEach(item => {
+
+        const input =
+            document.getElementById(
+                `input_${item.id}`
+            );
+
+        let value =
+            Number(input.value || 0);
+
+        if (value < 0) {
+            value = 0;
+        }
+
+        values[item.id] = value;
+
+    });
+
+
+    /* Nếu ngày đã tồn tại */
+
+    const exists =
+        historyData.hasOwnProperty(date);
+
+
+    if (exists) {
+
+        const ok = confirm(
+            "Ngày này đã có dữ liệu.\n\n" +
+            "Bạn có muốn cập nhật lại số lượng của ngày này không?"
+        );
+
+        if (!ok) {
+            return;
+        }
+
+    }
+
+
+    historyData[date] = values;
+
+
+    localStorage.setItem(
+        "quanLyHangHistory",
+        JSON.stringify(historyData)
+    );
+
+
+    renderAll();
+
+    clearInputs();
+
+
+    alert(
+        exists
+            ? "Đã cập nhật dữ liệu ngày " + formatDate(date)
+            : "Đã lưu dữ liệu ngày " + formatDate(date)
+    );
+
+}
+
+
+/* =====================================================
+   LOAD DỮ LIỆU KHI CHỌN NGÀY
+===================================================== */
+
+function loadSelectedDate() {
+
+    const date =
+        document.getElementById("selectedDate").value;
+
+    if (!date) {
+        return;
+    }
+
+
+    items.forEach(item => {
+
+        const input =
+            document.getElementById(
+                `input_${item.id}`
+            );
+
+        if (historyData[date]) {
+
+            input.value =
+                historyData[date][item.id] || "";
+
+        } else {
+
+            input.value = "";
+
+        }
+
+    });
+
+}
+
+
+/* =====================================================
+   KHI ĐỔI NGÀY
+===================================================== */
+
+document
+    .getElementById("selectedDate")
+    .addEventListener("change", function() {
+
+        loadSelectedDate();
+
+    });
+
+
+/* =====================================================
+   SỬA NGÀY
+===================================================== */
+
+function editDate(date) {
+
+    document.getElementById("selectedDate").value = date;
+
+    loadSelectedDate();
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+
+}
+
+
+/* =====================================================
+   XÓA NGÀY
+===================================================== */
+
+function deleteDate(date) {
+
+    const ok = confirm(
+
+        "Bạn có chắc muốn xóa dữ liệu ngày " +
+        formatDate(date) +
+        "?\n\n" +
+        "Số liệu tổng sẽ tự động được tính lại."
+
+    );
+
+    if (!ok) {
+        return;
+    }
+
+
+    delete historyData[date];
+
+
+    localStorage.setItem(
+        "quanLyHangHistory",
+        JSON.stringify(historyData)
+    );
+
+
+    renderAll();
+
+    loadSelectedDate();
+
+}
+
+
+/* =====================================================
+   XÓA Ô NHẬP
+===================================================== */
+
+function clearInputs() {
+
+    items.forEach(item => {
+
+        document.getElementById(
+            `input_${item.id}`
+        ).value = "";
+
+    });
+
+}
+
+
+/* =====================================================
+   RENDER TẤT CẢ
+===================================================== */
+
+function renderAll() {
+
+    renderCards();
+
+    renderHistory();
+
+}
+
+
+/* =====================================================
+   LẤY TÊN CÔNG ĐOẠN DẠNG TEXT THUẦN (bỏ thẻ span vi/zh)
+===================================================== */
+
+function getPlainName(item) {
+
+    const div = document.createElement("div");
+
+    div.innerHTML = item.name;
+
+    const vi = div.querySelector(".vi");
+    const zh = div.querySelector(".zh");
+
+    const viText = vi ? vi.textContent.trim() : "";
+    const zhText = zh ? zh.textContent.trim() : "";
+
+    if (viText && zhText) {
+        return `${viText} / ${zhText}`;
+    }
+
+    return div.textContent.trim();
+
+}
+
+
+/* =====================================================
+   XUẤT EXCEL (định dạng đẹp - ExcelJS)
+===================================================== */
+
+async function exportExcel() {
+
+    const dates = Object.keys(historyData).sort();
+
+    // Không còn chặn export khi chưa có lịch sử ngày nào —
+    // sheet Tổng quan vẫn xuất được dựa trên số liệu lũy kế hiện tại.
+
+    const workbook = new ExcelJS.Workbook();
+
+    workbook.creator = "Quản lý tiến độ hàng";
+    workbook.created = new Date();
+
+    const HEADER_BLUE = "FF2563EB";
+    const HEADER_DARK = "FF374151";
+    const THIN_GRAY = "FFD1D5DB";
+    const ZEBRA_GRAY = "FFF9FAFB";
+    const GREEN = "FF16A34A";
+    const RED = "FFDC2626";
+    const YELLOW = "FFFFF200";
+
+
+    /* ---------- SHEET 1: TỔNG QUAN TIẾN ĐỘ ---------- */
+
+    const wsSummary = workbook.addWorksheet("Tổng quan tiến độ", {
+        views: [{ state: "frozen", ySplit: 2, showGridLines: false }]
+    });
+
+    wsSummary.columns = [
+        { key: "name", width: 34 },
+        { key: "total", width: 18 },
+        { key: "done", width: 18 },
+        { key: "remaining", width: 18 },
+        { key: "percent", width: 20 }
+    ];
+
+    // Dòng 1: tiêu đề lớn, gộp 5 cột
+    wsSummary.mergeCells("A1:E1");
+
+    const titleCell = wsSummary.getCell("A1");
+
+    titleCell.value = "QUẢN LÝ TIẾN ĐỘ HÀNG / 货物进度管理";
+
+    titleCell.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
+    titleCell.alignment = { vertical: "middle", horizontal: "center" };
+    titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_DARK } };
+
+    wsSummary.getRow(1).height = 30;
+
+    // Dòng 2: tiêu đề cột
+    const sumHeader = wsSummary.getRow(2);
+
+    sumHeader.values = [
+        "Công đoạn / 工序",
+        "Tổng số lượng / 总数量",
+        "Đã hoàn thành / 已完成",
+        "Còn thiếu / 剩余数量",
+        "Tỷ lệ hoàn thành / 完成率"
+    ];
+
+    sumHeader.eachCell(cell => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_BLUE } };
+        cell.font = { color: { argb: "FFFFFFFF" }, bold: true, size: 12 };
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        cell.border = {
+            top: { style: "thin" }, left: { style: "thin" },
+            bottom: { style: "thin" }, right: { style: "thin" }
+        };
+    });
+
+    sumHeader.height = 32;
+
+    items.forEach(item => {
+
+        const done = getTotalDone(item);
+        const remaining = Math.max(item.total - done, 0);
+        const percent = item.total > 0 ? Math.min(done / item.total, 1) : 0;
+
+        const row = wsSummary.addRow([
+            getPlainName(item),
+            item.total,
+            done,
+            remaining,
+            percent
+        ]);
+
+        row.eachCell((cell, colNumber) => {
+
+            cell.border = {
+                top: { style: "thin", color: { argb: THIN_GRAY } },
+                left: { style: "thin", color: { argb: THIN_GRAY } },
+                bottom: { style: "thin", color: { argb: THIN_GRAY } },
+                right: { style: "thin", color: { argb: THIN_GRAY } }
+            };
+
+            cell.alignment = {
+                vertical: "middle",
+                horizontal: colNumber === 1 ? "left" : "center"
+            };
+
+        });
+
+        row.getCell(2).numFmt = "#,##0";
+        row.getCell(3).numFmt = "#,##0";
+        row.getCell(4).numFmt = "#,##0";
+        row.getCell(5).numFmt = "0.0%";
+
+        row.getCell(3).font = { color: { argb: GREEN }, bold: true };
+        row.getCell(4).font = { color: { argb: remaining === 0 ? GREEN : RED }, bold: true };
+        row.getCell(5).font = { bold: true };
+
+        if (row.number % 2 === 0) {
+            row.eachCell(cell => {
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA_GRAY } };
+            });
+        }
+
+    });
+
+    wsSummary.addConditionalFormatting({
+        ref: `E3:E${wsSummary.rowCount}`,
+        rules: [
+            {
+                type: "dataBar",
+                cfvo: [{ type: "num", value: 0 }, { type: "num", value: 1 }],
+                color: { argb: GREEN }
+            }
+        ]
+    });
+
+
+    /* ---------- SHEET 2: LỊCH SỬ NHẬP HÀNG ---------- */
+
+    const wsHistory = workbook.addWorksheet("Lịch sử nhập hàng", {
+        views: [{ state: "frozen", ySplit: 1, showGridLines: false }]
+    });
+
+    wsHistory.columns = [
+        { key: "date", width: 14 },
+        { key: "lenChuyen", width: 18 },
+        { key: "lapRap", width: 16 },
+        { key: "nhapKho", width: 16 },
+        { key: "khungDay", width: 16 },
+        { key: "chanTien", width: 18 }
+    ];
+
+    const histHeader = wsHistory.getRow(1);
+
+    histHeader.values = [
+        "Ngày / 日期",
+        "Lên chuyền / 上线",
+        "Lắp ráp / 组装",
+        "Nhập kho / 入库",
+        "Khung đáy / 底框",
+        "Chân tiền / 车脚加工"
+    ];
+
+    histHeader.eachCell(cell => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_BLUE } };
+        cell.font = { color: { argb: "FFFFFFFF" }, bold: true, size: 12 };
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        cell.border = {
+            top: { style: "thin" }, left: { style: "thin" },
+            bottom: { style: "thin" }, right: { style: "thin" }
+        };
+    });
+
+    histHeader.height = 32;
+
+    if (dates.length === 0) {
+
+        wsHistory.mergeCells("A2:F2");
+
+        const emptyCell = wsHistory.getCell("A2");
+
+        emptyCell.value = "Chưa có dữ liệu lịch sử / 暂无历史数据";
+
+        emptyCell.font = { italic: true, color: { argb: "FF6B7280" } };
+        emptyCell.alignment = { vertical: "middle", horizontal: "center" };
+
+    }
+
+    dates.forEach(date => {
+
+        const day = historyData[date];
+
+        const row = wsHistory.addRow([
+            formatDate(date),
+            day.lenChuyen || 0,
+            day.lapRap || 0,
+            day.nhapKho || 0,
+            day.khungDay || 0,
+            day.chanTien || 0
+        ]);
+
+        row.eachCell((cell, colNumber) => {
+
+            cell.border = {
+                top: { style: "thin", color: { argb: THIN_GRAY } },
+                left: { style: "thin", color: { argb: THIN_GRAY } },
+                bottom: { style: "thin", color: { argb: THIN_GRAY } },
+                right: { style: "thin", color: { argb: THIN_GRAY } }
+            };
+
+            cell.alignment = {
+                vertical: "middle",
+                horizontal: colNumber === 1 ? "center" : "center"
+            };
+
+            if (colNumber > 1) {
+                cell.numFmt = "#,##0";
+            }
+
+        });
+
+        row.getCell(1).font = { bold: true };
+
+        if (row.number % 2 === 0) {
+            row.eachCell(cell => {
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA_GRAY } };
+            });
+        }
+
+    });
+
+    // dòng tổng cộng ở cuối bảng lịch sử (chỉ khi có dữ liệu)
+    if (dates.length > 0) {
+
+        const totalRow = wsHistory.addRow([
+            "TỔNG CỘNG",
+            dates.reduce((s, d) => s + Number(historyData[d].lenChuyen || 0), 0),
+            dates.reduce((s, d) => s + Number(historyData[d].lapRap || 0), 0),
+            dates.reduce((s, d) => s + Number(historyData[d].nhapKho || 0), 0),
+            dates.reduce((s, d) => s + Number(historyData[d].khungDay || 0), 0),
+            dates.reduce((s, d) => s + Number(historyData[d].chanTien || 0), 0)
+        ]);
+
+        totalRow.eachCell((cell, colNumber) => {
+            cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_DARK } };
+            cell.alignment = { vertical: "middle", horizontal: "center" };
+            if (colNumber > 1) cell.numFmt = "#,##0";
+            cell.border = {
+                top: { style: "thin" }, left: { style: "thin" },
+                bottom: { style: "thin" }, right: { style: "thin" }
+            };
+        });
+
+    }
+
+
+    /* ---------- XUẤT FILE ---------- */
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+
+    const now = new Date();
+
+    const stamp =
+        `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+
+    link.download = `bao_cao_tien_do_hang_${stamp}.xlsx`;
+
+    link.click();
+
+    URL.revokeObjectURL(url);
+
+}
+
+
+/* =====================================================
+   XÓA TOÀN BỘ
+===================================================== */
+
+function deleteAllData() {
+
+    const ok = confirm(
+
+        "⚠️ CẢNH BÁO\n\n" +
+        "Bạn có chắc chắn muốn xóa TOÀN BỘ lịch sử không?\n\n" +
+        "Thao tác này không thể hoàn tác."
+
+    );
+
+
+    if (!ok) {
+        return;
+    }
+
+
+    const ok2 = confirm(
+        "Xác nhận lần cuối: XÓA TOÀN BỘ?"
+    );
+
+
+    if (!ok2) {
+        return;
+    }
+
+
+    historyData = {};
+
+
+    localStorage.removeItem(
+        "quanLyHangHistory"
+    );
+
+
+    clearInputs();
+
+    renderAll();
+
+
+    alert("Đã xóa toàn bộ lịch sử.");
+
+}
+
+</script>
+
+</body>
+</html>
